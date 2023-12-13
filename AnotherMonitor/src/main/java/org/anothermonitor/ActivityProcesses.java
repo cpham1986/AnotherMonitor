@@ -302,7 +302,7 @@ public class ActivityProcesses extends Activity {
 	@Override
 	public void onStart() {
 		super.onStart();
-		registerReceiver(receiverFinish, new IntentFilter(C.actionFinishActivity));
+		registerReceiver(receiverFinish, new IntentFilter(C.actionFinishActivity), RECEIVER_EXPORTED);
 	}
 	
 	

@@ -120,10 +120,12 @@
 	<string name="read_interval_text">Read parameters every:</string>
 	<string name="read_interval_prompt">Read interval (s):</string>
 	<string-array name="read_interval_array">
+		<item>0.25 s</item>
 		<item>0.5 s</item>
 		<item>1 s</item>
 		<item>2 s</item>
 		<item>4 s</item>
+		<item>8 s</item>
 	</string-array>
 	<string name="update_interval_text">Update labels and graph every:</string>
 	<string name="update_interval_prompt">Update interval (s):</string>
@@ -142,7 +144,7 @@
 		<item>10 dp</item>
 	</string-array>
 	<string name="p_cpuusage">CPU Usage</string>
-	<string name="p_cputotalusage">Total CPU usage</string>
+	<string name="p_cputotalusage">Avg. CPU usage</string>
 	<string name="p_cpuanothermonitor">AnotherMonitor</string>
 	<string name="p_memtotal">Memory</string>
 	<string name="p_memused">Mem used</string>

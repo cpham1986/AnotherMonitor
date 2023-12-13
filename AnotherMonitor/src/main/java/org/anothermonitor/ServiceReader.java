@@ -9,6 +9,8 @@
 
 package org.anothermonitor;
 
+import static android.app.PendingIntent.FLAG_IMMUTABLE;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -18,6 +20,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.text.DecimalFormat;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,7 +61,11 @@ public class ServiceReader extends Service {
 	private long workT, totalT, workAMT, total, totalBefore, work, workBefore, workAM, workAMBefore;
 	private String s;
 	private String[] sa;
+
+	List<CpuCalc> cores, coresBefore;
+
 	private List<Float> cpuTotal, cpuAM;
+	private List<List<Float>> coreTotal;
 	private List<Integer> memoryAM;
 	private List<Map<String, Object>> mListSelected; // Integer		 C.pId
 												  // String		 C.pName
@@ -156,6 +163,10 @@ public class ServiceReader extends Service {
 		cached = new ArrayList<String>(maxSamples);
 		threshold = new ArrayList<String>(maxSamples);
 
+		cores = new ArrayList<CpuCalc>();
+		//coresB = new ArrayList<CpuCalc>();
+		coreTotal = new ArrayList<List<Float>>(maxSamples);
+
 		pId = Process.myPid();
 
 		am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
@@ -170,9 +181,9 @@ public class ServiceReader extends Service {
 		readThread.start();
 
 //		LocalBroadcastManager.getInstance(this).registerReceiver(receiver, new IntentFilter(Constants.anotherMonitorEvent));
-		registerReceiver(receiverStartRecord, new IntentFilter(C.actionStartRecord));
-		registerReceiver(receiverStopRecord, new IntentFilter(C.actionStopRecord));
-		registerReceiver(receiverClose, new IntentFilter(C.actionClose));
+		registerReceiver(receiverStartRecord, new IntentFilter(C.actionStartRecord), RECEIVER_EXPORTED);
+		registerReceiver(receiverStopRecord, new IntentFilter(C.actionStopRecord), RECEIVER_EXPORTED);
+		registerReceiver(receiverClose, new IntentFilter(C.actionClose), RECEIVER_EXPORTED);
 
 		mNM = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 		// Create the NotificationChannel, but only on API 26+ because
@@ -189,10 +200,10 @@ public class ServiceReader extends Service {
 //				.addParentStack(ActivityMain.class)
 //				.addNextIntent(new Intent(this, ActivityMain.class))
 				.addNextIntentWithParentStack(new Intent(this, ActivityMain.class))
-				.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
-		PendingIntent pIStartRecord = PendingIntent.getBroadcast(this, 0, new Intent(C.actionStartRecord), PendingIntent.FLAG_UPDATE_CURRENT);
-		PendingIntent pIStopRecord = PendingIntent.getBroadcast(this, 0, new Intent(C.actionStopRecord), PendingIntent.FLAG_UPDATE_CURRENT);
-		PendingIntent pIClose = PendingIntent.getBroadcast(this, 0, new Intent(C.actionClose), PendingIntent.FLAG_UPDATE_CURRENT);
+				.getPendingIntent(0, FLAG_IMMUTABLE);
+		PendingIntent pIStartRecord = PendingIntent.getBroadcast(this, 0, new Intent(C.actionStartRecord), FLAG_IMMUTABLE);
+		PendingIntent pIStopRecord = PendingIntent.getBroadcast(this, 0, new Intent(C.actionStopRecord), FLAG_IMMUTABLE);
+		PendingIntent pIClose = PendingIntent.getBroadcast(this, 0, new Intent(C.actionClose), FLAG_IMMUTABLE);
 
 		mNotificationRead = new NotificationCompat.Builder(this,CHANNEL_ID)
 				.setContentTitle(getString(R.string.app_name))
@@ -276,6 +287,7 @@ public class ServiceReader extends Service {
 					cpuTotal.remove(cpuTotal.size() - 1);
 					cpuAM.remove(cpuAM.size() - 1);
 					memoryAM.remove(memoryAM.size() - 1);
+					coreTotal.remove(coreTotal.size() - 1);
 
 					memUsed.remove(memUsed.size() - 1);
 					memAvailable.remove(memAvailable.size() - 1);
@@ -338,11 +350,32 @@ public class ServiceReader extends Service {
 //			CPU usage percents calculation. It is possible negative values or values higher than 100% may appear.
 //			http://stackoverflow.com/questions/1420426
 //			http://kernel.org/doc/Documentation/filesystems/proc.txt
+			List<CpuCalc> cores = new ArrayList<>();
 			if (Build.VERSION.SDK_INT < 26) {
 				reader = new BufferedReader(new FileReader("/proc/stat"));
 				sa = reader.readLine().split("[ ]+", 9);
 				work = Long.parseLong(sa[1]) + Long.parseLong(sa[2]) + Long.parseLong(sa[3]);
 				total = work + Long.parseLong(sa[4]) + Long.parseLong(sa[5]) + Long.parseLong(sa[6]) + Long.parseLong(sa[7]);
+
+				boolean end = false;
+
+				while(!end) {
+					sa = reader.readLine().split("[ ]+", 9);
+					if(sa.length == 0){
+						end = true;
+					} else {
+						if(sa[0].matches("^cpu[0-9]+")){
+							Long workCore = Long.parseLong(sa[1]) + Long.parseLong(sa[2]) + Long.parseLong(sa[3]);
+							Long totalCore = workCore + Long.parseLong(sa[4]) + Long.parseLong(sa[5]) + Long.parseLong(sa[6]) + Long.parseLong(sa[7]);
+							//Log.d("cores", Arrays.toString(sa));
+
+							cores.add(new CpuCalc(workCore, totalCore));
+						}else{
+							end = true;
+						}
+					}
+				}
+
 				reader.close();
 			}
 
@@ -412,6 +445,14 @@ public class ServiceReader extends Service {
 				cpuTotal.add(0, restrictPercentage(workT * 100 / (float) totalT));
 				cpuAM.add(0, restrictPercentage(workAMT * 100 / (float) totalT));
 
+				List<Float> percents = new ArrayList<>();
+				for(int i = 0; i < cores.size(); i++){
+					percents.add(
+							restrictPercentage((cores.get(i).getWork() - coresBefore.get(i).getWork())	* 100 / (float) (cores.get(i).getTotal() - coresBefore.get(i).getTotal()))
+					);
+				}
+				coreTotal.add(0,percents);
+
 				if (mListSelected != null && !mListSelected.isEmpty()) {
 					int workPT = 0;
 					List<Float> l;
@@ -438,6 +479,8 @@ public class ServiceReader extends Service {
 			totalBefore = total;
 			workBefore = work;
 			workAMBefore = workAM;
+
+			coresBefore = cores;
 
 			if (mListSelected != null && !mListSelected.isEmpty())
 				for (Map<String, Object> p : mListSelected)
@@ -674,6 +717,8 @@ public class ServiceReader extends Service {
 	List<Float> getCPUTotalP() {
 		return cpuTotal;
 	}
+
+	List<List<Float>> getCoreTotal() {return coreTotal;}
 
 	List<Float> getCPUAMP() {
 		return cpuAM;

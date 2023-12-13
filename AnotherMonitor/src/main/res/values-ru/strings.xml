@@ -119,10 +119,12 @@
   <string name="read_interval_text">Читать данные каждые:</string>
   <string name="read_interval_prompt">Интервал чтения (сек):</string>
   <string-array name="read_interval_array">
+    <item>0.25 сек</item>
     <item>0.5 сек</item>
     <item>1 сек</item>
     <item>2 сек</item>
     <item>4 сек</item>
+    <item>8 сек</item>
   </string-array>
   <string name="update_interval_text">Обновлять метки и график каждые:</string>
   <string name="update_interval_prompt">Интервал обновления (сек):</string>

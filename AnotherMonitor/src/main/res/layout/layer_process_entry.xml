@@ -15,19 +15,21 @@
 	    style="@style/FirstColumn"
 	  	android:orientation="vertical" >
 
-	    <TextView
-	        android:id="@+id/TVpAppName"
+		<TextView
+			android:id="@+id/TVpAppName"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
+			android:fontFamily="sans-serif-smallcaps"
 			android:textSize="16sp"
 			android:textStyle="bold" />
-	
-	    <TextView
-	        android:id="@+id/TVpName"
+
+		<TextView
+			android:id="@+id/TVpName"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
-			android:textSize="13sp"
-			android:textColor="@color/VeryDarkGray" />
+			android:fontFamily="sans-serif-smallcaps"
+			android:textColor="@color/VeryDarkGray"
+			android:textSize="13sp" />
 	    
 	</LinearLayout>
     
@@ -35,14 +37,15 @@
 	    style="@style/SecondColumn"
 	  	android:orientation="vertical"  >
 
-	    <TextView
-	        android:id="@+id/TVpPercentage"
+		<TextView
+			android:id="@+id/TVpPercentage"
 			android:layout_width="55dp"
 			android:layout_height="wrap_content"
 			android:layout_gravity="bottom|right"
+			android:fontFamily="sans-serif-smallcaps"
 			android:gravity="right"
-			android:textSize="16sp"
-			android:text="@string/p_percentage" />
+			android:text="@string/p_percentage"
+			android:textSize="16sp" />
 	
 	    <TextView
 	        android:id="@+id/TVpAbsolute"

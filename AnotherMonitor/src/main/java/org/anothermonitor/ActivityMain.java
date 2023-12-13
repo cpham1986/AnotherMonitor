@@ -13,6 +13,7 @@ import java.io.Serializable;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -37,7 +38,9 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.SurfaceTexture;
+import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -63,6 +66,8 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 	private boolean cpuTotal, cpuAM,
 				memUsed, memAvailable, memFree, cached, threshold,
 				settingsShown, canvasLocked, orientationChanged;
+	private List<Boolean> coresDisplay = new ArrayList<>();
+	private List<Paint> coreColors = new ArrayList<>();
 	private int intervalRead, intervalUpdate, intervalWidth, statusBarHeight, navigationBarHeight, animDuration=200,
 				settingsHeight, orientation, processesMode, graphicMode;
 	private float sD;
@@ -70,7 +75,7 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 	private FrameLayout mLSettings, mLGraphicSurface, mCloseSettings;
 	private LinearLayout mLParent, mLTopBar, mLMenu, mLProcessContainer, mLFeedback, mLWelcome,
 						mLCPUTotal, mLCPUAM,
-						mLMemUsed, mLMemAvailable, mLMemFree, mLCached, mLThreshold;
+						mLMemUsed, mLMemAvailable, mLMemFree, mLCached, mLThreshold, mLCoreTotal;
 	private TextView mTVCPUTotalP, mTVCPUAMP, mTVMemoryAM,
 					mTVMemTotal, mTVMemUsed, mTVMemAvailable, mTVMemFree, mTVCached, mTVThreshold,
 								 mTVMemUsedP, mTVMemAvailableP, mTVMemFreeP, mTVCachedP, mTVThresholdP;
@@ -103,6 +108,58 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				if (processesMode == C.processesModeShowCPU)
 					setTextLabelCPU(null, mTVCPUAMP, mSR.getCPUAMP());
 				else setTextLabelCPU(null, mTVCPUAMP, null, mSR.getMemoryAM());
+
+				if(mSR.getCoreTotal().size() > 0){
+					if(mLCoreTotal.getChildCount() == 0){
+						for(int i = 0; i < mSR.getCoreTotal().get(mSR.getCoreTotal().size()-1).size(); i++){
+							final LinearLayout l = (LinearLayout) getLayoutInflater().inflate(R.layout.layer_core_entry, null);
+							coresDisplay.add(Boolean.TRUE);
+							TextView pNameCore = (TextView) l.findViewById(R.id.TVCPUCore);
+							pNameCore.setText("CPU #"+ (i+1));
+							pNameCore.setTextColor(getColourForCore(i));
+
+
+							TextView pCoreUsage = (TextView) l.findViewById(R.id.TVCPUTotalP);
+							pCoreUsage.setText(mFormatPercent.format(mSR.getCoreTotal().get(0).get(i)) + C.percent);
+							pCoreUsage.setTextColor(getColourForCore(i));
+
+
+							Paint p = new Paint();
+							p.setColor(getColourForCore(i));
+							p.setTextSize(12);
+							p.setTextAlign(Paint.Align.CENTER);
+							p.setAntiAlias(false);
+							p.setStrokeWidth((int) Math.ceil(1 * res.getDisplayMetrics().density));
+
+							coreColors.add(p);
+
+							final int displayIndex = i;
+							l.setOnClickListener(new View.OnClickListener() {
+								@Override
+								public void onClick(View v) {
+									Boolean b = (Boolean) coresDisplay.get(displayIndex);
+									coresDisplay.set(displayIndex, !b);
+
+									ImageView iv = (ImageView) l.getChildAt(0);
+									if(!b){
+										iv.setImageResource(R.drawable.icon_play);
+									} else {
+										iv.setImageResource(R.drawable.icon_pause);
+									}
+								}
+							});
+
+							mLCoreTotal.addView(l);
+						}
+					} else {
+						for(int i = 0; i < mLCoreTotal.getChildCount(); i++){
+							LinearLayout l = (LinearLayout) mLCoreTotal.getChildAt(i);
+							TextView pUsage = (TextView) l.findViewById(R.id.TVCPUTotalP);
+							pUsage.setText(mFormatPercent.format(mSR.getCoreTotal().get(0).get(i)) + C.percent);
+
+						}
+					}
+				}
 				
 				setTextLabelMemory(mTVMemUsed, mTVMemUsedP, mSR.getMemUsed());
 				setTextLabelMemory(mTVMemAvailable, mTVMemAvailableP, mSR.getMemAvailable());
@@ -170,7 +227,7 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 			mSR = ((ServiceReader.ServiceReaderDataBinder) service).getService();
 			
 			mVG.setService(mSR);
-			mVG.setParameters(cpuTotal, cpuAM, memUsed, memAvailable, memFree, cached, threshold);
+			mVG.setParameters(cpuTotal, cpuAM, memUsed, memAvailable, memFree, cached, threshold, coresDisplay, coreColors);
 			
 			setIconRecording();
 			
@@ -438,7 +495,8 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 		});
 		
 		mLProcessContainer = (LinearLayout) findViewById(R.id.LProcessContainer);
-		
+		mLCoreTotal = (LinearLayout) findViewById(R.id.LCoreContainer);
+
 		mLCPUTotal = (LinearLayout) findViewById(R.id.LCPUTotal);
 		mLCPUTotal.setTag(C.cpuTotal);
 		mLCPUTotal.setOnClickListener(new View.OnClickListener() {
@@ -630,11 +688,14 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 		
 		mSBRead = (SeekBar) findViewById(R.id.SBIntervalRead);
 		int t = 0;
+		Log.d("interval", String.valueOf(intervalRead));
 		switch (intervalRead) {
-			case 500: t = 0; break;
-			case 1000: t = 1; break;
-			case 2000: t = 2; break;
-			case 4000: t = 4;
+			case 250: t = 0; break;
+			case 500: t = 1; break;
+			case 1000: t = 2; break;
+			case 2000: t = 4; break;
+			case 4000: t = 5; break;
+			case 8000: t = 6;
 		}
 		mSBRead.setProgress(t);
 		mSBRead.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -653,10 +714,12 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				seekBar.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
 				int t = 0;
 				switch (mSBRead.getProgress()) {
-					case 0: t = 500; break;
-					case 1: t = 1000; break;
-					case 2: t = 2000; break;
-					case 3: t = 4000;
+					case 0: t = 250; break;
+					case 1: t = 500; break;
+					case 2: t = 1000; break;
+					case 3: t = 2000; break;
+					case 4: t = 4000; break;
+					case 5: t = 8000;
 				}
 				mTVIntervalRead.setText(getString(R.string.interval_read) + " " + mFormatTime.format(t/(float)1000) + " s");
 			}
@@ -665,10 +728,12 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 		final SeekBar mSBUpdate = (SeekBar) findViewById(R.id.SBIntervalUpdate);
 		t = 0;
 		switch (intervalUpdate) {
-			case 500: t = 0; break;
-			case 1000: t = 1; break;
-			case 2000: t = 2; break;
-			case 4000: t = 3;
+			case 250: t = 0; break;
+			case 500: t = 1; break;
+			case 1000: t = 2; break;
+			case 2000: t = 4; break;
+			case 4000: t = 5; break;
+			case 8000: t = 6;
 		}
 		mSBUpdate.setProgress(t);
 		mSBUpdate.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -685,10 +750,12 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				seekBar.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
 				int t = 0;
 				switch (mSBUpdate.getProgress()) {
-					case 0: t = 500; break;
-					case 1: t = 1000; break;
-					case 2: t = 2000; break;
-					case 3: t = 4000;
+					case 0: t = 250; break;
+					case 1: t = 500; break;
+					case 2: t = 1000; break;
+					case 3: t = 2000; break;
+					case 4: t = 4000; break;
+					case 5: t = 8000;
 				}
 				mTVIntervalUpdate.setText(getString(R.string.interval_update) + " " + mFormatTime.format(t/(float)1000) + " s");
 			}
@@ -734,17 +801,21 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				int intervalWidth = 0, intervalRead = 0, intervalUpdate = 0;
 				
 				switch (mSBRead.getProgress()) {
-					case 0: intervalRead = 500; break;
-					case 1: intervalRead = 1000; break;
-					case 2: intervalRead = 2000; break;
-					case 3: intervalRead = 4000;
+					case 0: intervalRead = 250; break;
+					case 1: intervalRead = 500; break;
+					case 2: intervalRead = 1000; break;
+					case 3: intervalRead = 2000; break;
+					case 4: intervalRead = 4000; break;
+					case 5: intervalRead = 8000;
 				}
 				
 				switch (mSBUpdate.getProgress()) {
-					case 0: intervalUpdate = 500; break;
-					case 1: intervalUpdate = 1000; break;
-					case 2: intervalUpdate = 2000; break;
-					case 3: intervalUpdate = 4000;
+					case 0: intervalUpdate = 250; break;
+					case 1: intervalUpdate = 500; break;
+					case 2: intervalUpdate = 1000; break;
+					case 3: intervalUpdate = 2000; break;
+					case 4: intervalUpdate = 4000; break;
+					case 5: intervalUpdate = 8000;
 				}
 				
 				switch (mSBWidth.getProgress()) {
@@ -756,12 +827,15 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				
 				if (intervalRead > intervalUpdate) {
 					intervalUpdate = intervalRead;
+
 					int t = 0;
 					switch (intervalUpdate) {
-						case 500: t = 0; break;
-						case 1000: t = 1; break;
-						case 2000: t = 2; break;
-						case 4000: t = 3;
+						case 250: t = 0; break;
+						case 500: t = 1; break;
+						case 1000: t = 2; break;
+						case 2000: t = 3; break;
+						case 4000: t = 4; break;
+						case 8000: t = 5;
 					}
 					mSBUpdate.setProgress(t);
 				}
@@ -1010,7 +1084,7 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				
 				.apply();
 		
-		mVG.setParameters(cpuTotal, cpuAM, memUsed, memAvailable, memFree, cached, threshold);
+		mVG.setParameters(cpuTotal, cpuAM, memUsed, memAvailable, memFree, cached, threshold, coresDisplay, coreColors);
 		
 		ImageView icon = (ImageView) labelRow.getChildAt(0);
 		if (draw)
@@ -1136,9 +1210,34 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 	
 	
 	
+	private int getColourForCore(int n) {
+		if (n==0)
+			return res.getColor(R.color.core1);
+		else if (n==1)
+			return res.getColor(R.color.core2);
+		else if (n==2)
+			return res.getColor(R.color.core3);
+		else if (n==3)
+			return res.getColor(R.color.core4);
+		else if (n==4)
+			return res.getColor(R.color.core5);
+		else if (n==5)
+			return res.getColor(R.color.core6);
+		else if (n==6)
+			return res.getColor(R.color.core7);
+		else if (n==7)
+			return res.getColor(R.color.core8);
+		else if (n==8)
+			return res.getColor(R.color.core9);
+		else if (n==8)
+			return res.getColor(R.color.core10);
+		n-=8;
+		return getColourForProcess(n);
+	}
+
 	private int getColourForProcess(int n) {
 		if (n==0)
-			return res.getColor(R.color.process3);
+			return res.getColor(R.color.process1);
 		else if (n==1)
 			return res.getColor(R.color.process4);
 		else if (n==2)
@@ -1156,11 +1255,10 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 		n-=8;
 		return getColourForProcess(n);
 	}
-	
-	
-	
-	
-	
+
+
+
+
 	@SuppressLint({ "NewApi", "InflateParams" })
 	@SuppressWarnings("unchecked")
 	@Override
@@ -1340,9 +1438,9 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 	public void onStart() {
 		super.onStart();
 		bindService(new Intent(this, ServiceReader.class), mServiceConnection, 0);
-		registerReceiver(receiverSetIconRecord, new IntentFilter(C.actionSetIconRecord));
-		registerReceiver(receiverDeadProcess, new IntentFilter(C.actionDeadProcess));
-		registerReceiver(receiverFinish, new IntentFilter(C.actionFinishActivity));
+		registerReceiver(receiverSetIconRecord, new IntentFilter(C.actionSetIconRecord), RECEIVER_EXPORTED);
+		registerReceiver(receiverDeadProcess, new IntentFilter(C.actionDeadProcess), RECEIVER_EXPORTED);
+		registerReceiver(receiverFinish, new IntentFilter(C.actionFinishActivity), RECEIVER_EXPORTED);
 	}
 	
 	

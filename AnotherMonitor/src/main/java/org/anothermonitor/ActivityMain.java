@@ -16,6 +16,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TimeZone;
 
 import android.Manifest;
@@ -100,6 +101,7 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 		@SuppressLint("NewApi")
 		@Override
 		public void run() {
+			String text_str = "";
 			mHandler.postDelayed(this, intervalUpdate);
 			if (mSR != null) { // finish() could have been called from the BroadcastReceiver
 				mHandlerVG.post(drawRunnableGraphic);
@@ -115,12 +117,14 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 							final LinearLayout l = (LinearLayout) getLayoutInflater().inflate(R.layout.layer_core_entry, null);
 							coresDisplay.add(Boolean.TRUE);
 							TextView pNameCore = (TextView) l.findViewById(R.id.TVCPUCore);
-							pNameCore.setText("CPU #"+ (i+1));
+							text_str = "CPU #"+ (i+1);
+							pNameCore.setText(text_str);
 							pNameCore.setTextColor(getColourForCore(i));
 
 
 							TextView pCoreUsage = (TextView) l.findViewById(R.id.TVCPUTotalP);
-							pCoreUsage.setText(mFormatPercent.format(mSR.getCoreTotal().get(0).get(i)) + C.percent);
+							text_str = mFormatPercent.format(mSR.getCoreTotal().get(0).get(i)) + C.percent;
+							pCoreUsage.setText(text_str);
 							pCoreUsage.setTextColor(getColourForCore(i));
 
 
@@ -155,7 +159,8 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 						for(int i = 0; i < mLCoreTotal.getChildCount(); i++){
 							LinearLayout l = (LinearLayout) mLCoreTotal.getChildAt(i);
 							TextView pUsage = (TextView) l.findViewById(R.id.TVCPUTotalP);
-							pUsage.setText(mFormatPercent.format(mSR.getCoreTotal().get(0).get(i)) + C.percent);
+							text_str = mFormatPercent.format(mSR.getCoreTotal().get(0).get(i)) + C.percent;
+							pUsage.setText(text_str);
 
 						}
 					}
@@ -192,7 +197,7 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 							try {
 								mVG.unlockCanvasAndPost(canvas);
 							} catch (IllegalStateException e) {
-								Log.w("Activity main: ", e.getMessage());
+								Log.w("Activity main: ", Objects.requireNonNull(e.getMessage()));
 							}
 							
 							canvasLocked = false;
@@ -230,8 +235,8 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 			mVG.setParameters(cpuTotal, cpuAM, memUsed, memAvailable, memFree, cached, threshold, coresDisplay, coreColors);
 			
 			setIconRecording();
-			
-			mTVMemTotal.setText(mFormat.format(mSR.getMemTotal()) + C.kB);
+			String text_str = mFormat.format(mSR.getMemTotal()) + C.kB;
+			mTVMemTotal.setText(text_str);
 			
 			switchParameter(cpuTotal, mLCPUTotal);
 			switchParameter(cpuAM, mLCPUAM);
@@ -348,11 +353,11 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				graphicMode = graphicMode == C.graphicModeShowMemory ? C.graphicModeHideMemory : C.graphicModeShowMemory;
 				mPrefs.edit().putInt(C.graphicMode, graphicMode).apply();
 				mVG.setGraphicMode(graphicMode);
-				mBHide.setChecked(graphicMode == C.graphicModeShowMemory ? false : true);
+				mBHide.setChecked(graphicMode != C.graphicModeShowMemory);
 				mHandlerVG.post(drawRunnableGraphic);
 			}
 		});
-		mBHide.setChecked(graphicMode == C.graphicModeShowMemory ? false : true);
+		mBHide.setChecked(graphicMode != C.graphicModeShowMemory);
 		
 		processesMode = mPrefs.getInt(C.processesMode, C.processesModeShowCPU);
 		mVG.setProcessesMode(processesMode);
@@ -374,39 +379,37 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 		
 		mLTopBar = (LinearLayout) findViewById(R.id.LTopBar);
 		mLGraphicSurface = (FrameLayout) findViewById(R.id.LGraphicButton);
-		
-		if (Build.VERSION.SDK_INT >= 19) {
-			getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
-			
-			float sSW = res.getConfiguration().smallestScreenWidthDp;
-			
-			if (!ViewConfiguration.get(this).hasPermanentMenuKey() && !KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_HOME)
-					&& (res.getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT || sSW > 560)) {
-				getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-				navigationBarHeight = res.getDimensionPixelSize(res.getIdentifier(C.nbh, C.dimen, C.android));
-				if (navigationBarHeight == 0)
-					navigationBarHeight = (int) (48*sD);
-				
-				FrameLayout nb = (FrameLayout) findViewById(R.id.LNavigationBar);
-				nb.setVisibility(View.VISIBLE);
-				((FrameLayout.LayoutParams) nb.getLayoutParams()).height = navigationBarHeight;
-				((FrameLayout.LayoutParams) mVG.getLayoutParams()).setMargins(0, 0, 0, navigationBarHeight);
-				((FrameLayout.LayoutParams) mLGraphicSurface.getLayoutParams()).setMargins(0, 0, 0, navigationBarHeight);
-				
-				int paddingTop = mSBWidth.getPaddingTop();
-				int paddingBottom = mSBWidth.getPaddingBottom();
-				int paddingLeft = mSBWidth.getPaddingLeft();
-				int paddingRight = mSBWidth.getPaddingRight();
-				mSBWidth.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom + navigationBarHeight);
-			}
-			
-			int paddingTop = mLTopBar.getPaddingTop();
-			int paddingBottom = mLTopBar.getPaddingBottom();
-			int paddingLeft = mLTopBar.getPaddingLeft();
-			int paddingRight = mLTopBar.getPaddingRight();
-			mLTopBar.setPadding(paddingLeft, paddingTop + statusBarHeight, paddingRight, paddingBottom);
+
+		getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+
+		float sSW = res.getConfiguration().smallestScreenWidthDp;
+
+		if (!ViewConfiguration.get(this).hasPermanentMenuKey() && !KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_HOME)
+				&& (res.getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT || sSW > 560)) {
+			getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+			navigationBarHeight = res.getDimensionPixelSize(res.getIdentifier(C.nbh, C.dimen, C.android));
+			if (navigationBarHeight == 0)
+				navigationBarHeight = (int) (48*sD);
+
+			FrameLayout nb = (FrameLayout) findViewById(R.id.LNavigationBar);
+			nb.setVisibility(View.VISIBLE);
+			((FrameLayout.LayoutParams) nb.getLayoutParams()).height = navigationBarHeight;
+			((FrameLayout.LayoutParams) mVG.getLayoutParams()).setMargins(0, 0, 0, navigationBarHeight);
+			((FrameLayout.LayoutParams) mLGraphicSurface.getLayoutParams()).setMargins(0, 0, 0, navigationBarHeight);
+
+			int paddingTop = mSBWidth.getPaddingTop();
+			int paddingBottom = mSBWidth.getPaddingBottom();
+			int paddingLeft = mSBWidth.getPaddingLeft();
+			int paddingRight = mSBWidth.getPaddingRight();
+			mSBWidth.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom + navigationBarHeight);
 		}
-		
+
+		int paddingTop = mLTopBar.getPaddingTop();
+		int paddingBottom = mLTopBar.getPaddingBottom();
+		int paddingLeft = mLTopBar.getPaddingLeft();
+		int paddingRight = mLTopBar.getPaddingRight();
+		mLTopBar.setPadding(paddingLeft, paddingTop + statusBarHeight, paddingRight, paddingBottom);
+
 		mLParent = (LinearLayout) findViewById(R.id.LParent);
 		
 		mLButtonMenu = (ImageView) findViewById(R.id.LButtonMenu);
@@ -416,9 +419,7 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				@Override
 				public void onClick(View v) {
 					mPWMenu.setAnimationStyle(R.style.Animations_PopDownMenu);
-					if (Build.VERSION.SDK_INT < 19)
-						mPWMenu.showAtLocation(mLTopBar, Gravity.TOP | Gravity.RIGHT, 0, mLTopBar.getHeight() + statusBarHeight);
-					else mPWMenu.showAtLocation(mLTopBar, Gravity.TOP | Gravity.RIGHT, 0, mLTopBar.getHeight());
+					mPWMenu.showAtLocation(mLTopBar, Gravity.TOP | Gravity.RIGHT, 0, mLTopBar.getHeight());
 				}
 			});
 //		I came across with a Vodafone Ultra phone which had the Menu button implemented as an apps Navigation bar button long-click.
@@ -513,7 +514,8 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				switchParameter(cpuAM = !cpuAM, mLCPUAM);
 			}
 		});
-		((TextView) ((LinearLayout) mLCPUAM.getChildAt(2)).getChildAt(1)).setText("Pid: " + Process.myPid());
+		String text_str = "Pid: " + Process.myPid();
+		((TextView) ((LinearLayout) mLCPUAM.getChildAt(2)).getChildAt(1)).setText(text_str);
 		
 		mLMemUsed = (LinearLayout) findViewById(R.id.LMemUsed);
 		mLMemUsed.setTag(C.memUsed);
@@ -678,13 +680,16 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 				});
 			}
 		});
-		
+
 		final TextView mTVIntervalRead = (TextView) findViewById(R.id.TVIntervalRead);
-		mTVIntervalRead.setText(getString(R.string.interval_read) + " " + mFormatTime.format(intervalRead/(float)1000) + " s");
+		text_str = getString(R.string.interval_read) + " " + mFormatTime.format(intervalRead/(float)1000) + " s";
+		mTVIntervalRead.setText(text_str);
 		final TextView mTVIntervalUpdate = (TextView) findViewById(R.id.TVIntervalUpdate);
-		mTVIntervalUpdate.setText(getString(R.string.interval_update) + " " + mFormatTime.format(intervalUpdate/(float)1000) + " s");
+		text_str = getString(R.string.interval_update) + " " + mFormatTime.format(intervalUpdate/(float)1000) + " s";
+		mTVIntervalUpdate.setText(text_str);
 		final TextView mTVIntervalWidth = (TextView) findViewById(R.id.TVIntervalWidth);
-		mTVIntervalWidth.setText(getString(R.string.interval_width) + " " + intervalWidth + " dp");
+		text_str = getString(R.string.interval_width) + " " + intervalWidth + " dp";
+		mTVIntervalWidth.setText(text_str);
 		
 		mSBRead = (SeekBar) findViewById(R.id.SBIntervalRead);
 		int t = 0;
@@ -721,7 +726,8 @@ public class ActivityMain extends Activity implements ActivityCompat.OnRequestPe
 					case 4: t = 4000; break;
 					case 5: t = 8000;
 				}
-				mTVIntervalRead.setText(getString(R.string.interval_read) + " " + mFormatTime.format(t/(float)1000) + " s");
+				String text_str = getString(R.string.interval_read) + " " + mFormatTime.format(t/(float)1000) + " s";
+				mTVIntervalRead.setText(text_str);
 			}
 		});
 		

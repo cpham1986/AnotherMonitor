@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+style="@style/ParameterRow"
+android:id="@+id/LCPUTotal" >
+
+<ImageView
+	style="@style/ParameterStatusIcon"
+	android:id="@+id/IVCPUTotalPS" />
+
+<TextView
+	style="@style/FirstColumn"
+	android:id="@+id/TVCPUCore"
+	android:textColor="@color/process1" />
+
+<TextView
+	style="@style/SecondColumn"
+	android:id="@+id/TVCPUTotalP"
+	android:text="@string/p_percentage"
+	android:textColor="@color/process1" />
+</LinearLayout>
